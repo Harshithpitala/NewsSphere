@@ -14,9 +14,11 @@ export const useAuthStore = create((set, get) => ({
       if (response.success && response.user) {
         set({ user: response.user, isAuthenticated: true, isLoading: false });
       } else {
+        localStorage.removeItem('newssphere_token');
         set({ user: null, isAuthenticated: false, isLoading: false });
       }
     } catch (err) {
+      localStorage.removeItem('newssphere_token');
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
@@ -26,6 +28,9 @@ export const useAuthStore = create((set, get) => ({
     try {
       const response = await authService.login(credentials);
       if (response.success && response.user) {
+        if (response.token) {
+          localStorage.setItem('newssphere_token', response.token);
+        }
         set({ user: response.user, isAuthenticated: true, isLoading: false });
         return { success: true, message: response.message, user: response.user };
       }
@@ -41,6 +46,9 @@ export const useAuthStore = create((set, get) => ({
     try {
       const response = await authService.register(userData);
       if (response.success && response.user) {
+        if (response.token) {
+          localStorage.setItem('newssphere_token', response.token);
+        }
         set({ user: response.user, isAuthenticated: true, isLoading: false });
         return { success: true, message: response.message };
       }
@@ -57,6 +65,7 @@ export const useAuthStore = create((set, get) => ({
     } catch (e) {
       // Ignore network errors on logout
     } finally {
+      localStorage.removeItem('newssphere_token');
       set({ user: null, isAuthenticated: false, isLoading: false, error: null });
     }
   },
