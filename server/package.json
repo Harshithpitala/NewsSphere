@@ -1,0 +1,47 @@
+{
+  "name": "newssphere-server",
+  "version": "1.0.0",
+  "description": "NewsSphere - Advanced AI-Powered News Platform Backend Server",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "seed": "node src/seeds/seed.js",
+    "test": "node src/tests/master.test.js",
+    "test:all": "node src/tests/master.test.js",
+    "test:workflow": "node src/tests/workflow.test.js",
+    "test:security": "node src/tests/security.test.js",
+    "test:models": "node src/tests/models.test.js",
+    "test:auth": "node src/tests/auth.test.js",
+    "test:articles": "node src/tests/article.test.js",
+    "test:external-news": "node src/tests/externalNews.test.js",
+    "test:search-trending": "node src/tests/searchAndTrending.test.js",
+    "test:engagement": "node src/tests/engagement.test.js",
+    "test:cms": "node src/tests/cms.test.js",
+    "test:admin": "node src/tests/admin.test.js",
+    "test:analytics": "node src/tests/analytics.test.js",
+    "test:ai": "node src/tests/ai.test.js",
+    "test:recommendations": "node src/tests/recommendation.test.js",
+    "test:realtime": "node src/tests/realtime.test.js",
+    "test:media": "node src/tests/media.test.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.3.1",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.5.1",
+    "multer": "^1.4.5-lts.1",
+    "sharp": "^0.35.4",
+    "socket.io": "^4.7.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
