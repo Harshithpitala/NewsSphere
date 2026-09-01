@@ -33,10 +33,31 @@ import { errorHandler } from './middlewares/errorHandler.js';
 const app = express();
 const httpServer = createServer(app);
 
+app.set('trust proxy', 1);
+
+const parseOrigins = (urlStr) => {
+  if (!urlStr) return ['http://localhost:5173', 'https://news-sphere-peach.vercel.app'];
+  return urlStr.split(',').map((s) => s.trim().replace(/\/$/, ''));
+};
+
+const allowedOrigins = parseOrigins(env.CLIENT_URL);
+
+const corsOriginHandler = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  const cleanOrigin = origin.replace(/\/$/, '');
+  if (allowedOrigins.includes(cleanOrigin) || allowedOrigins.includes('*')) {
+    return callback(null, true);
+  }
+  if (cleanOrigin.endsWith('.vercel.app') || cleanOrigin.includes('localhost')) {
+    return callback(null, true);
+  }
+  return callback(null, true);
+};
+
 // Socket.IO Setup
 export const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: env.CLIENT_URL,
+    origin: corsOriginHandler,
     credentials: true,
   },
 });
@@ -58,10 +79,10 @@ io.on('connection', (socket) => {
 });
 
 // Middleware Architecture
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(
   cors({
-    origin: env.CLIENT_URL,
+    origin: corsOriginHandler,
     credentials: true,
   })
 );
