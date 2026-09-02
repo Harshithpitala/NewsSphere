@@ -4,9 +4,15 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
+import dns from 'dns';
 import { env } from './config/env.js';
 import { connectDB } from './config/db.js';
 import { startScheduledPublisher } from './services/publisher.service.js';
+
+// Force Node.js to resolve IPv4 addresses first for outbound connections (SMTP/MongoDB)
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
 
 // Routers
 import healthRouter from './routes/health.routes.js';
