@@ -6,6 +6,7 @@ import {
   getMe,
   changePassword,
   forgotPassword,
+  verifyOTP,
   resetPassword,
   googleAuth,
 } from '../controllers/auth.controller.js';
@@ -15,6 +16,7 @@ import {
   loginSchema,
   changePasswordSchema,
   forgotPasswordSchema,
+  verifyOTPSchema,
   resetPasswordSchema,
 } from '../validation/auth.validation.js';
 import { authenticateUser } from '../middlewares/auth.middleware.js';
@@ -31,6 +33,7 @@ router.post('/logout', authenticateUser, logoutUser);
 router.get('/me', authenticateUser, getMe);
 router.post('/change-password', authenticateUser, validate(changePasswordSchema), changePassword);
 router.post('/forgot-password', validate(forgotPasswordSchema), forgotPassword);
+router.post('/verify-otp', validate(verifyOTPSchema), verifyOTP);
 router.post('/reset-password', validate(resetPasswordSchema), resetPassword);
 router.post('/google', googleAuth);
 

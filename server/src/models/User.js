@@ -80,6 +80,14 @@ const userSchema = new mongoose.Schema(
       type: Date,
       select: false,
     },
+    passwordResetOTP: {
+      type: String,
+      select: false,
+    },
+    passwordResetOTPExpires: {
+      type: Date,
+      select: false,
+    },
     lastLoginAt: {
       type: Date,
     },

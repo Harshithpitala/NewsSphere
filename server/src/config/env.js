@@ -20,4 +20,10 @@ export const env = {
   NEWS_API_BASE_URL: process.env.NEWS_API_BASE_URL || 'https://newsapi.org/v2',
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || process.env.AI_API_KEY || '',
   AI_MODEL: process.env.AI_MODEL || 'gemini-1.5-flash',
+  SMTP_HOST: process.env.SMTP_HOST || '',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASS: process.env.SMTP_PASS || '',
+  SMTP_SECURE: process.env.SMTP_SECURE === 'true',
+  EMAIL_FROM: process.env.EMAIL_FROM || '"NewsSphere Security" <noreply@newssphere.com>',
 };

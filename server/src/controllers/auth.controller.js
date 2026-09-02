@@ -4,6 +4,8 @@ import { APIError } from '../utils/APIError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { sendTokenResponse, clearTokenResponse } from '../utils/token.js';
 import { ROLES } from '../constants/enums.js';
+import { emailService } from '../services/email.service.js';
+import { env } from '../config/env.js';
 
 // @desc    Register new user
 // @route   POST /api/v1/auth/register
@@ -98,7 +100,7 @@ export const changePassword = asyncHandler(async (req, res, next) => {
   sendTokenResponse(user, 200, res, 'Password updated successfully');
 });
 
-// @desc    Forgot password (Generate reset token)
+// @desc    Forgot password (Generate 6-digit OTP & reset token)
 // @route   POST /api/v1/auth/forgot-password
 // @access  Public
 export const forgotPassword = asyncHandler(async (req, res, next) => {
@@ -109,30 +111,86 @@ export const forgotPassword = asyncHandler(async (req, res, next) => {
   // Generic success message to prevent user enumeration
   const genericResponse = {
     success: true,
-    message: 'If an account with that email exists, password reset instructions have been sent.',
+    message: 'If an account with that email exists, a 6-digit OTP has been sent.',
   };
 
   if (!user) {
     return res.status(200).json(genericResponse);
   }
 
+  // Generate 6-digit numeric OTP
+  const rawOTP = Math.floor(100000 + Math.random() * 900000).toString();
+  const hashedOTP = crypto.createHash('sha256').update(rawOTP).digest('hex');
+
   // Generate 32-byte crypto token
   const resetToken = crypto.randomBytes(32).toString('hex');
+  const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
 
-  // Hash reset token for DB storage
+  user.passwordResetOTP = hashedOTP;
+  user.passwordResetOTPExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  user.passwordResetToken = hashedToken;
+  user.passwordResetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+
+  await user.save({ validateBeforeSave: false });
+
+  const clientUrl = env.CLIENT_URL || 'http://localhost:5173';
+  const resetUrl = `${clientUrl.replace(/\/$/, '')}/reset-password?token=${resetToken}`;
+
+  // Dispatch 6-digit OTP Email via SMTP
+  await emailService.sendOTPEmail({
+    to: user.email,
+    name: user.name,
+    otp: rawOTP,
+  });
+
+  // Also dispatch link email
+  await emailService.sendPasswordResetEmail({
+    to: user.email,
+    name: user.name,
+    resetUrl,
+    resetToken,
+  });
+
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`\n[DEV MODE - OTP FOR ${user.email}]: ${rawOTP}\n`);
+  }
+
+  res.status(200).json(genericResponse);
+});
+
+// @desc    Verify 6-digit OTP
+// @route   POST /api/v1/auth/verify-otp
+// @access  Public
+export const verifyOTP = asyncHandler(async (req, res, next) => {
+  const { email, otp } = req.body;
+
+  const hashedOTP = crypto.createHash('sha256').update(otp.trim()).digest('hex');
+
+  const user = await User.findOne({
+    email: email.toLowerCase().trim(),
+    passwordResetOTP: hashedOTP,
+    passwordResetOTPExpires: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    return next(new APIError(400, 'Invalid or expired OTP verification code'));
+  }
+
+  // Clear OTP fields
+  user.passwordResetOTP = undefined;
+  user.passwordResetOTPExpires = undefined;
+
+  // Re-generate fresh reset token for setting new password
+  const resetToken = crypto.randomBytes(32).toString('hex');
   user.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
   user.passwordResetExpires = Date.now() + 60 * 60 * 1000; // 1 hour
 
   await user.save({ validateBeforeSave: false });
 
-  // In development, log the reset token safely for testing
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`\n[DEV MODE - PASSWORD RESET TOKEN FOR ${user.email}]: ${resetToken}\n`);
-  }
-
   res.status(200).json({
-    ...genericResponse,
-    ...(process.env.NODE_ENV === 'development' && { devResetToken: resetToken }),
+    success: true,
+    message: 'OTP verified successfully.',
+    token: resetToken,
   });
 });
 

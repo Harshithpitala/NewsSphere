@@ -106,9 +106,23 @@ export const useAuthStore = create((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await authService.forgotPassword(data);
-      return { success: true, message: response.message, devResetToken: response.devResetToken };
+      return { success: true, message: response.message, devOTP: response.devOTP, devResetToken: response.devResetToken };
     } catch (err) {
       const errMsg = err.message || 'Request failed';
+      set({ isLoading: false, error: errMsg });
+      return { success: false, message: errMsg };
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  verifyOTP: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await authService.verifyOTP(data);
+      return { success: true, message: response.message, token: response.token };
+    } catch (err) {
+      const errMsg = err.message || 'OTP verification failed';
       set({ isLoading: false, error: errMsg });
       return { success: false, message: errMsg };
     } finally {

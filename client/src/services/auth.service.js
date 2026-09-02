@@ -25,6 +25,10 @@ export const authService = {
     return await api.post('/auth/forgot-password', data);
   },
 
+  verifyOTP: async (data) => {
+    return await api.post('/auth/verify-otp', data);
+  },
+
   resetPassword: async (data) => {
     return await api.post('/auth/reset-password', data);
   },
