@@ -14,15 +14,17 @@ const createTransporter = () => {
       host,
       port,
       secure,
-      connectionTimeout: 5000,
-      greetingTimeout: 5000,
-      socketTimeout: 5000,
+      family: 4, // Force IPv4 addressing to avoid ENETUNREACH on Render/Cloud hosts
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
       auth: {
         user,
         pass,
       },
       tls: {
         rejectUnauthorized: false,
+        servername: host,
       },
     });
   }
