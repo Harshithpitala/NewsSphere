@@ -2,11 +2,12 @@ import nodemailer from 'nodemailer';
 import { env } from '../config/env.js';
 
 const createTransporter = () => {
-  const host = env.SMTP_HOST || process.env.SMTP_HOST;
-  const user = env.SMTP_USER || process.env.SMTP_USER;
-  const pass = env.SMTP_PASS || process.env.SMTP_PASS;
-  const port = env.SMTP_PORT || parseInt(process.env.SMTP_PORT || '587', 10);
-  const secure = env.SMTP_SECURE || process.env.SMTP_SECURE === 'true';
+  const host = (env.SMTP_HOST || process.env.SMTP_HOST || '').trim();
+  const user = (env.SMTP_USER || process.env.SMTP_USER || '').trim();
+  const rawPass = (env.SMTP_PASS || process.env.SMTP_PASS || '').trim();
+  const pass = rawPass.replace(/\s+/g, ''); // Strip spaces from Gmail 16-char App Passwords
+  const port = parseInt(env.SMTP_PORT || process.env.SMTP_PORT || '587', 10);
+  const secure = port === 465;
 
   if (host && user && pass) {
     return nodemailer.createTransport({
@@ -16,6 +17,9 @@ const createTransporter = () => {
       auth: {
         user,
         pass,
+      },
+      tls: {
+        rejectUnauthorized: false,
       },
     });
   }
@@ -64,8 +68,9 @@ export const emailService = {
 
     if (transporter) {
       try {
+        const fromAddress = env.EMAIL_FROM || process.env.EMAIL_FROM || `"NewsSphere Security" <${user}>`;
         await transporter.sendMail({
-          from: process.env.EMAIL_FROM || '"NewsSphere Security" <noreply@newssphere.com>',
+          from: fromAddress,
           to,
           subject: `🔑 ${otp} is your NewsSphere Verification Code`,
           html: htmlContent,
@@ -123,8 +128,9 @@ export const emailService = {
 
     if (transporter) {
       try {
+        const fromAddress = env.EMAIL_FROM || process.env.EMAIL_FROM || `"NewsSphere Security" <${user}>`;
         await transporter.sendMail({
-          from: process.env.EMAIL_FROM || '"NewsSphere Security" <noreply@newssphere.com>',
+          from: fromAddress,
           to,
           subject: '🔒 Reset Your NewsSphere Password',
           html: htmlContent,
