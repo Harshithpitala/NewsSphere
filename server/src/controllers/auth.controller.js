@@ -136,20 +136,14 @@ export const forgotPassword = asyncHandler(async (req, res, next) => {
   const clientUrl = env.CLIENT_URL || 'http://localhost:5173';
   const resetUrl = `${clientUrl.replace(/\/$/, '')}/reset-password?token=${resetToken}`;
 
-  // Dispatch 6-digit OTP Email via SMTP
-  await emailService.sendOTPEmail({
-    to: user.email,
-    name: user.name,
-    otp: rawOTP,
-  });
-
-  // Also dispatch link email
-  await emailService.sendPasswordResetEmail({
-    to: user.email,
-    name: user.name,
-    resetUrl,
-    resetToken,
-  });
+  // Dispatch 6-digit OTP Email via SMTP asynchronously
+  emailService
+    .sendOTPEmail({
+      to: user.email,
+      name: user.name,
+      otp: rawOTP,
+    })
+    .catch((err) => console.error('[Email Dispatch Error]:', err.message));
 
   if (process.env.NODE_ENV === 'development') {
     console.log(`\n[DEV MODE - OTP FOR ${user.email}]: ${rawOTP}\n`);
