@@ -12,15 +12,29 @@ const createTransporter = () => {
   const user = (env.SMTP_USER || process.env.SMTP_USER || '').trim();
   const rawPass = (env.SMTP_PASS || process.env.SMTP_PASS || '').trim();
   const pass = rawPass.replace(/\s+/g, ''); // Strip spaces from Gmail 16-char App Passwords
-  const port = parseInt(env.SMTP_PORT || process.env.SMTP_PORT || '587', 10);
+  const port = parseInt(env.SMTP_PORT || process.env.SMTP_PORT || '465', 10);
   const secure = port === 465;
 
   if (host && user && pass) {
+    // Built-in preset for Gmail SMTP (bypasses port 587 STARTTLS firewall blocks on cloud hosts)
+    if (host.includes('gmail')) {
+      return nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user,
+          pass,
+        },
+        tls: {
+          rejectUnauthorized: false,
+        },
+      });
+    }
+
     return nodemailer.createTransport({
       host,
       port,
       secure,
-      family: 4, // Force IPv4 addressing to avoid ENETUNREACH on Render/Cloud hosts
+      family: 4,
       connectionTimeout: 10000,
       greetingTimeout: 10000,
       socketTimeout: 10000,
@@ -30,7 +44,6 @@ const createTransporter = () => {
       },
       tls: {
         rejectUnauthorized: false,
-        servername: host,
       },
     });
   }
