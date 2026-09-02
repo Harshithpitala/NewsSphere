@@ -7,6 +7,27 @@ if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
 
+const sendViaResendAPI = async ({ apiKey, from, to, subject, html }) => {
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      from: from || 'NewsSphere Security <onboarding@resend.dev>',
+      to: Array.isArray(to) ? to : [to],
+      subject,
+      html,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || 'Resend HTTP API dispatch failed');
+  }
+  return data;
+};
+
 const createTransporter = () => {
   const host = (env.SMTP_HOST || process.env.SMTP_HOST || '').trim();
   const user = (env.SMTP_USER || process.env.SMTP_USER || '').trim();
@@ -16,7 +37,6 @@ const createTransporter = () => {
   const secure = port === 465;
 
   if (host && user && pass) {
-    // Built-in preset for Gmail SMTP (bypasses port 587 STARTTLS firewall blocks on cloud hosts)
     if (host.includes('gmail')) {
       return nodemailer.createTransport({
         service: 'gmail',
@@ -52,7 +72,9 @@ const createTransporter = () => {
 
 export const emailService = {
   sendOTPEmail: async ({ to, name, otp }) => {
-    const transporter = createTransporter();
+    const rawPass = (env.SMTP_PASS || process.env.SMTP_PASS || '').trim();
+    const resendKey = process.env.RESEND_API_KEY || (rawPass.startsWith('re_') ? rawPass : '');
+    const fromAddress = env.EMAIL_FROM || process.env.EMAIL_FROM || '"NewsSphere Security" <onboarding@resend.dev>';
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -90,16 +112,34 @@ export const emailService = {
       </html>
     `;
 
+    // 1. Try Resend HTTP API over Port 443 if key present (Fastest, zero port blocks)
+    if (resendKey) {
+      try {
+        await sendViaResendAPI({
+          apiKey: resendKey,
+          from: fromAddress,
+          to,
+          subject: `🔑 ${otp} is your NewsSphere Verification Code`,
+          html: htmlContent,
+        });
+        console.log(`[Email Service] OTP email dispatched via Resend HTTPS API to ${to}`);
+        return true;
+      } catch (err) {
+        console.error('[Resend API Error]:', err.message);
+      }
+    }
+
+    // 2. Fallback to Nodemailer Transporter
+    const transporter = createTransporter();
     if (transporter) {
       try {
-        const fromAddress = env.EMAIL_FROM || process.env.EMAIL_FROM || `"NewsSphere Security" <${user}>`;
         await transporter.sendMail({
           from: fromAddress,
           to,
           subject: `🔑 ${otp} is your NewsSphere Verification Code`,
           html: htmlContent,
         });
-        console.log(`[Email Service] OTP email dispatched to ${to}`);
+        console.log(`[Email Service] OTP email dispatched via SMTP to ${to}`);
         return true;
       } catch (err) {
         console.error('[Email Service Error]:', err.message);
@@ -112,7 +152,9 @@ export const emailService = {
   },
 
   sendPasswordResetEmail: async ({ to, name, resetUrl, resetToken }) => {
-    const transporter = createTransporter();
+    const rawPass = (env.SMTP_PASS || process.env.SMTP_PASS || '').trim();
+    const resendKey = process.env.RESEND_API_KEY || (rawPass.startsWith('re_') ? rawPass : '');
+    const fromAddress = env.EMAIL_FROM || process.env.EMAIL_FROM || '"NewsSphere Security" <onboarding@resend.dev>';
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -150,16 +192,32 @@ export const emailService = {
       </html>
     `;
 
+    if (resendKey) {
+      try {
+        await sendViaResendAPI({
+          apiKey: resendKey,
+          from: fromAddress,
+          to,
+          subject: '🔒 Reset Your NewsSphere Password',
+          html: htmlContent,
+        });
+        console.log(`[Email Service] Password reset email dispatched via Resend HTTPS API to ${to}`);
+        return true;
+      } catch (err) {
+        console.error('[Resend API Error]:', err.message);
+      }
+    }
+
+    const transporter = createTransporter();
     if (transporter) {
       try {
-        const fromAddress = env.EMAIL_FROM || process.env.EMAIL_FROM || `"NewsSphere Security" <${user}>`;
         await transporter.sendMail({
           from: fromAddress,
           to,
           subject: '🔒 Reset Your NewsSphere Password',
           html: htmlContent,
         });
-        console.log(`[Email Service] Password reset email dispatched to ${to}`);
+        console.log(`[Email Service] Password reset email dispatched via SMTP to ${to}`);
         return true;
       } catch (err) {
         console.error('[Email Service Error]:', err.message);
