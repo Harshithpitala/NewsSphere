@@ -29,16 +29,28 @@ const sendViaResendAPI = async ({ apiKey, from, to, subject, html }) => {
 };
 
 const sendViaBrevoAPI = async ({ apiKey, fromName, fromEmail, to, subject, html }) => {
+  // Extract pure email address from format like 'NewsSphere Security <name@domain.com>'
+  let cleanEmail = fromEmail || '';
+  const match = cleanEmail.match(/<([^>]+)>/);
+  if (match) {
+    cleanEmail = match[1];
+  }
+
+  // Fallback if email contains unverified test domain
+  if (!cleanEmail || cleanEmail.includes('resend.dev') || cleanEmail.includes('newssphere.com')) {
+    cleanEmail = (env.SMTP_USER || process.env.SMTP_USER || 'pharshith270@gmail.com').trim();
+  }
+
   const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'api-key': apiKey,
+      'api-key': apiKey.trim(),
     },
     body: JSON.stringify({
       sender: {
         name: fromName || 'NewsSphere Security',
-        email: fromEmail || 'noreply@newssphere.com',
+        email: cleanEmail,
       },
       to: Array.isArray(to) ? to.map((t) => ({ email: t })) : [{ email: to }],
       subject,
@@ -47,7 +59,7 @@ const sendViaBrevoAPI = async ({ apiKey, fromName, fromEmail, to, subject, html 
   });
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.message || 'Brevo HTTP API dispatch failed');
+    throw new Error(data.message || data.code || 'Brevo HTTP API dispatch failed');
   }
   return data;
 };
