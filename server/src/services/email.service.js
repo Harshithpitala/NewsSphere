@@ -28,6 +28,30 @@ const sendViaResendAPI = async ({ apiKey, from, to, subject, html }) => {
   return data;
 };
 
+const sendViaBrevoAPI = async ({ apiKey, fromName, fromEmail, to, subject, html }) => {
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'api-key': apiKey,
+    },
+    body: JSON.stringify({
+      sender: {
+        name: fromName || 'NewsSphere Security',
+        email: fromEmail || 'noreply@newssphere.com',
+      },
+      to: Array.isArray(to) ? to.map((t) => ({ email: t })) : [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || 'Brevo HTTP API dispatch failed');
+  }
+  return data;
+};
+
 const createTransporter = () => {
   const host = (env.SMTP_HOST || process.env.SMTP_HOST || '').trim();
   const user = (env.SMTP_USER || process.env.SMTP_USER || '').trim();
@@ -74,7 +98,8 @@ export const emailService = {
   sendOTPEmail: async ({ to, name, otp }) => {
     const rawPass = (env.SMTP_PASS || process.env.SMTP_PASS || '').trim();
     const resendKey = process.env.RESEND_API_KEY || (rawPass.startsWith('re_') ? rawPass : '');
-    const fromAddress = env.EMAIL_FROM || process.env.EMAIL_FROM || '"NewsSphere Security" <onboarding@resend.dev>';
+    const brevoKey = process.env.BREVO_API_KEY || (rawPass.startsWith('xkeysib-') || rawPass.startsWith('xsmtpsib-') ? rawPass : '');
+    const fromAddress = env.EMAIL_FROM || process.env.EMAIL_FROM || '"NewsSphere Security" <noreply@newssphere.com>';
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -112,7 +137,26 @@ export const emailService = {
       </html>
     `;
 
-    // 1. Try Resend HTTP API over Port 443 if key present (Fastest, zero port blocks)
+    // 1. Try Brevo HTTPS API over Port 443 if key present (300 free emails/day to ANY address)
+    if (brevoKey) {
+      try {
+        const senderEmail = (env.SMTP_USER || process.env.SMTP_USER || 'noreply@newssphere.com').trim();
+        await sendViaBrevoAPI({
+          apiKey: brevoKey,
+          fromName: 'NewsSphere Security',
+          fromEmail: senderEmail,
+          to,
+          subject: `🔑 ${otp} is your NewsSphere Verification Code`,
+          html: htmlContent,
+        });
+        console.log(`[Email Service] OTP email dispatched via Brevo HTTPS API to ${to}`);
+        return true;
+      } catch (err) {
+        console.error('[Brevo API Error]:', err.message);
+      }
+    }
+
+    // 2. Try Resend HTTP API over Port 443 if key present
     if (resendKey) {
       try {
         await sendViaResendAPI({
@@ -129,7 +173,7 @@ export const emailService = {
       }
     }
 
-    // 2. Fallback to Nodemailer Transporter
+    // 3. Fallback to Nodemailer Transporter
     const transporter = createTransporter();
     if (transporter) {
       try {
@@ -154,7 +198,8 @@ export const emailService = {
   sendPasswordResetEmail: async ({ to, name, resetUrl, resetToken }) => {
     const rawPass = (env.SMTP_PASS || process.env.SMTP_PASS || '').trim();
     const resendKey = process.env.RESEND_API_KEY || (rawPass.startsWith('re_') ? rawPass : '');
-    const fromAddress = env.EMAIL_FROM || process.env.EMAIL_FROM || '"NewsSphere Security" <onboarding@resend.dev>';
+    const brevoKey = process.env.BREVO_API_KEY || (rawPass.startsWith('xkeysib-') || rawPass.startsWith('xsmtpsib-') ? rawPass : '');
+    const fromAddress = env.EMAIL_FROM || process.env.EMAIL_FROM || '"NewsSphere Security" <noreply@newssphere.com>';
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -191,6 +236,24 @@ export const emailService = {
       </body>
       </html>
     `;
+
+    if (brevoKey) {
+      try {
+        const senderEmail = (env.SMTP_USER || process.env.SMTP_USER || 'noreply@newssphere.com').trim();
+        await sendViaBrevoAPI({
+          apiKey: brevoKey,
+          fromName: 'NewsSphere Security',
+          fromEmail: senderEmail,
+          to,
+          subject: '🔒 Reset Your NewsSphere Password',
+          html: htmlContent,
+        });
+        console.log(`[Email Service] Password reset email dispatched via Brevo HTTPS API to ${to}`);
+        return true;
+      } catch (err) {
+        console.error('[Brevo API Error]:', err.message);
+      }
+    }
 
     if (resendKey) {
       try {
